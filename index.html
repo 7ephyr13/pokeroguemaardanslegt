@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Snake Game</title>
+<title>Snake Game 🐍</title>
 
 <style>
 * {
@@ -15,8 +15,8 @@ body {
     margin: 0;
     min-height: 100vh;
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
     background: linear-gradient(135deg, #10251c, #172b25);
     font-family: Arial, sans-serif;
     color: white;
@@ -124,7 +124,7 @@ button:hover {
 
     <canvas id="canvas" width="400" height="400"></canvas>
 
-    <button class="start-btn" id="startBtn" onclick="startGame()">
+    <button class="start-btn" id="startBtn" type="button">
         ▶ START SPEL
     </button>
 
@@ -132,12 +132,12 @@ button:hover {
 
     <div class="controls">
         <button class="empty"> </button>
-        <button onclick="changeDirection('UP')">⬆️</button>
+        <button type="button" data-dir="UP">⬆️</button>
         <button class="empty"> </button>
 
-        <button onclick="changeDirection('LEFT')">⬅️</button>
-        <button onclick="changeDirection('DOWN')">⬇️</button>
-        <button onclick="changeDirection('RIGHT')">➡️</button>
+        <button type="button" data-dir="LEFT">⬅️</button>
+        <button type="button" data-dir="DOWN">⬇️</button>
+        <button type="button" data-dir="RIGHT">➡️</button>
     </div>
 
 </div>
@@ -148,6 +148,7 @@ const ctx = canvas.getContext("2d");
 
 const box = 20;
 const size = 400;
+const SPEED = 300;
 
 let snake = [];
 let food = {};
@@ -156,13 +157,11 @@ let nextDirection = "RIGHT";
 let score = 0;
 let best = Number(localStorage.getItem("snakeBest")) || 0;
 let running = false;
-let gameOver = false;
 let gameLoop = null;
 
-// Score weergeven
 document.getElementById("best").textContent = best;
 
-// Achtergrond tekenen
+// Achtergrond
 function drawBackground() {
     ctx.fillStyle = "#172d24";
     ctx.fillRect(0, 0, size, size);
@@ -183,7 +182,7 @@ function drawBackground() {
     }
 }
 
-// Nieuwe appel
+// Appel maken
 function createFood() {
     do {
         food = {
@@ -200,19 +199,16 @@ function drawFood() {
     const x = food.x;
     const y = food.y;
 
-    // Schaduw
     ctx.fillStyle = "#0004";
     ctx.beginPath();
     ctx.ellipse(x + 11, y + 18, 9, 3, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Appel
     ctx.fillStyle = "#ef4444";
     ctx.beginPath();
     ctx.arc(x + 10, y + 12, 8, 0, Math.PI * 2);
     ctx.fill();
 
-    // Steeltje
     ctx.strokeStyle = "#a16207";
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -220,53 +216,18 @@ function drawFood() {
     ctx.lineTo(x + 12, y + 1);
     ctx.stroke();
 
-    // Blaadje
     ctx.fillStyle = "#86efac";
     ctx.beginPath();
     ctx.ellipse(x + 15, y + 4, 4, 2, -0.5, 0, Math.PI * 2);
     ctx.fill();
 }
 
-// Slang tekenen
-function drawSnake() {
-    // Lichaam: van staart naar hoofd
-    for (let i = snake.length - 1; i >= 0; i--) {
-        const part = snake[i];
-        const isHead = i === 0;
-
-        ctx.fillStyle = isHead
-            ? "#86efac"
-            : (i % 2 === 0 ? "#4ade80" : "#22c55e");
-
-        ctx.beginPath();
-        ctx.roundRect(
-            part.x + 1,
-            part.y + 1,
-            18,
-            18,
-            8
-        );
-        ctx.fill();
-
-        // Kleine schubben
-        if (!isHead) {
-            ctx.fillStyle = "#ffffff30";
-            ctx.beginPath();
-            ctx.arc(part.x + 7, part.y + 7, 2, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    }
-
-    drawHead();
-}
-
-// Slangenhoofd met ogen en tong
+// Slangenhoofd
 function drawHead() {
     const head = snake[0];
     const cx = head.x + 10;
     const cy = head.y + 10;
 
-    // Ogen afhankelijk van richting
     let eyes = [];
 
     if (direction === "RIGHT") {
@@ -291,22 +252,17 @@ function drawHead() {
         ctx.fill();
     });
 
-    // Gespleten tong
-    let startX = cx, startY = cy;
-    let endX = cx, endY = cy;
+    // Tong
+    let sx = cx, sy = cy, ex = cx, ey = cy;
 
     if (direction === "RIGHT") {
-        startX += 8;
-        endX += 13;
+        sx += 8; ex += 13;
     } else if (direction === "LEFT") {
-        startX -= 8;
-        endX -= 13;
+        sx -= 8; ex -= 13;
     } else if (direction === "UP") {
-        startY -= 8;
-        endY -= 13;
+        sy -= 8; ey -= 13;
     } else {
-        startY += 8;
-        endY += 13;
+        sy += 8; ey += 13;
     }
 
     ctx.strokeStyle = "#fb7185";
@@ -314,22 +270,49 @@ function drawHead() {
     ctx.lineCap = "round";
 
     ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(endX, endY);
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
 
     if (direction === "RIGHT" || direction === "LEFT") {
-        ctx.moveTo(endX, endY);
-        ctx.lineTo(endX + (direction === "RIGHT" ? 3 : -3), endY - 3);
-        ctx.moveTo(endX, endY);
-        ctx.lineTo(endX + (direction === "RIGHT" ? 3 : -3), endY + 3);
+        const d = direction === "RIGHT" ? 3 : -3;
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex + d, ey - 3);
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex + d, ey + 3);
     } else {
-        ctx.moveTo(endX, endY);
-        ctx.lineTo(endX - 3, endY + (direction === "DOWN" ? 3 : -3));
-        ctx.moveTo(endX, endY);
-        ctx.lineTo(endX + 3, endY + (direction === "DOWN" ? 3 : -3));
+        const d = direction === "DOWN" ? 3 : -3;
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex - 3, ey + d);
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex + 3, ey + d);
     }
 
     ctx.stroke();
+}
+
+// Slang tekenen
+function drawSnake() {
+    for (let i = snake.length - 1; i >= 0; i--) {
+        const part = snake[i];
+        const isHead = i === 0;
+
+        ctx.fillStyle = isHead
+            ? "#86efac"
+            : (i % 2 === 0 ? "#4ade80" : "#22c55e");
+
+        ctx.beginPath();
+        ctx.roundRect(part.x + 1, part.y + 1, 18, 18, 8);
+        ctx.fill();
+
+        if (!isHead) {
+            ctx.fillStyle = "#ffffff30";
+            ctx.beginPath();
+            ctx.arc(part.x + 7, part.y + 7, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    drawHead();
 }
 
 // Alles tekenen
@@ -357,7 +340,7 @@ function drawStartScreen() {
     ctx.fillText("Druk op START SPEL", 200, 240);
 }
 
-// Start game
+// Spel starten
 function startGame() {
     if (running) return;
 
@@ -370,20 +353,16 @@ function startGame() {
     direction = "RIGHT";
     nextDirection = "RIGHT";
     score = 0;
-    gameOver = false;
     running = true;
 
     document.getElementById("score").textContent = score;
     document.getElementById("message").textContent = "Veel succes!";
-    document.getElementById("startBtn").textContent = "↻ OPNIEUW STARTEN";
 
     createFood();
     draw();
 
     clearInterval(gameLoop);
-
-    // Langzaam bewegen: 220 milliseconden
-    gameLoop = setInterval(update, 220);
+    gameLoop = setInterval(update, SPEED);
 }
 
 // Richting veranderen
@@ -402,6 +381,17 @@ function changeDirection(newDirection) {
     if (newDirection === "RIGHT" && direction !== "LEFT")
         nextDirection = "RIGHT";
 }
+
+// Startknop koppelen
+document.getElementById("startBtn")
+    .addEventListener("click", startGame);
+
+// Mobiele knoppen koppelen
+document.querySelectorAll("[data-dir]").forEach(button => {
+    button.addEventListener("click", () => {
+        changeDirection(button.dataset.dir);
+    });
+});
 
 // Toetsenbord
 document.addEventListener("keydown", function(e) {
@@ -422,7 +412,7 @@ document.addEventListener("keydown", function(e) {
     }
 });
 
-// Game loop
+// Spel bijwerken
 function update() {
     if (!running) return;
 
@@ -437,13 +427,12 @@ function update() {
 
     const eating = head.x === food.x && head.y === food.y;
 
-    const collisionBody = eating ? snake : snake.slice(0, -1);
+    const body = eating ? snake : snake.slice(0, -1);
 
-    // Botsing controleren
     if (
         head.x < 0 || head.x >= size ||
         head.y < 0 || head.y >= size ||
-        collisionBody.some(p => p.x === head.x && p.y === head.y)
+        body.some(p => p.x === head.x && p.y === head.y)
     ) {
         endGame();
         return;
@@ -453,6 +442,7 @@ function update() {
 
     if (eating) {
         score += 10;
+
         document.getElementById("score").textContent = score;
 
         if (score > best) {
@@ -472,7 +462,6 @@ function update() {
 // Game over
 function endGame() {
     running = false;
-    gameOver = true;
     clearInterval(gameLoop);
 
     draw();
@@ -496,8 +485,9 @@ function endGame() {
         "▶ OPNIEUW SPELEN";
 }
 
-// Initieel scherm
+// Begin met startscherm, niet automatisch starten
 drawStartScreen();
+
 </script>
 
 </body>
